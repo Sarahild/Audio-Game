@@ -2,8 +2,9 @@
 
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera( 45, window.innerWidth/window.innerHeight, 0.1, 1000 );
-camera.position.z = 8.00
+camera.position.z = 5.00;
 camera.position.y = -0.50;
+camera.position.x = 2; //0
 
 function position(x,y,z,w) {
   this.x = x;
@@ -34,32 +35,36 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
 var cube_geometry = new THREE.BoxGeometry( 1, 1, 1 );
-var cube_material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+var cube_material = new THREE.MeshBasicMaterial( { color: 0x0ff0f0 } );
 var cube = new THREE.Mesh( cube_geometry, cube_material );
 scene.add( cube );
 
 var planeMaterial = new THREE.MeshLambertMaterial({color:0xffffff});
-var floor = createWall(20,200,20,200, 0, -5.0, 0, -Math.PI/2, planeMaterial);
+var floor = createWall(20,200,20,200, 0, -5.0, 0, -Math.PI/2, 0, 0, planeMaterial);
 scene.add(floor);
 var walls = new Array();
-walls[0] = createWall(10, 10, 10, 10, 0, 0,  10, 0, planeMaterial);
+walls[0] = createWall(10, 10, 10, 10, 0, 0,  5, 0, 0, 0, planeMaterial);
 scene.add(walls[0]);
-walls[1] = createWall(10, 10, 10, 10, 0, 0, -10, 0, planeMaterial);
+walls[1] = createWall(10, 10, 10, 10, 0, 0, -5, 0, 0, 0, planeMaterial);
 scene.add(walls[1]);
+walls[2] = createWall(10, 10, 10, 10, 5, 0,  0, 0, -Math.PI/2, 0, planeMaterial);
+scene.add(walls[2]);
+walls[3] = createWall(10, 10, 10, 10, -5, 0, 0, 0, Math.PI/2, 0, planeMaterial);
+scene.add(walls[3]);
 
 var reverbPositions = new Array();
 
-function createWall(width, height, widthSegments, heightSegments, x, y, z, rotation_x, material)
+function createWall(width, height, widthSegments, heightSegments, x, y, z, rotation_x, rotation_y, rotation_z, material)
 {
   var wall = new THREE.Mesh(new THREE.PlaneGeometry(width,height,widthSegments,heightSegments), material);
   wall.position.x = x;
   wall.position.y = y;
   wall.position.z = z;
   wall.rotation.x = rotation_x;
+  wall.rotation.y = rotation_y;
+  wall.rotation.z = rotation_z;
   return wall;
 }
-
-camera.position.z = 5;
 
 var play = document.querySelector(".play");
 var stop = document.querySelector(".stop");
@@ -84,9 +89,9 @@ function getAudio() {
   mainVolume.connect(audio_context.destination);
   request = new XMLHttpRequest();
 
-  //request.open('GET', 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/sound.wav', true);
+  request.open('GET', 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/caneTap.wav', true);
   //request.open('GET', 'sound.wav', true);
-  request.open('Get', 'http://thingsinjars.com/lab/web-audio-tutorial/hello.mp3', true);
+  //request.open('Get', 'http://thingsinjars.com/lab/web-audio-tutorial/hello.mp3', true);
   request.responseType = 'arraybuffer';
 
   request.onload = function() {
@@ -126,8 +131,9 @@ function getAudio() {
 function doReverb(sourceBuffer)
 {
   var originalPosition = new THREE.Vector3(0,0,0);
-  for (var i = 0; i < walls.length; i++)
-  {
+  var i = 1;
+  // for (var i = 0; i < walls.length; i++)
+  // {
     reverbSources[i] = audio_context.createBufferSource();
     reverbVolume = audio_context.createGain();
     // reverbVolume.gain.value = 1;
@@ -150,7 +156,7 @@ function doReverb(sourceBuffer)
     //reverbDelay.connect(panner);
     panner.connect(audio_context.destination);
     //reverbDelay.connect(audio_context.destination);
-  }
+  // }
   // return reverbSources;
 }
 
@@ -205,21 +211,23 @@ stop.onclick = function() {
 
 function playSound() {
   source.start(audio_context.currentTime);
-  for (var i = 0; i < reverbSources.length; i++)
-  {
+  var i = 1;
+  // for (var i = 0; i < reverbSources.length; i++)
+  // {
     var distance = Math.sqrt(Math.pow(reflectedCubes[i].position.x-camera.position.x,2) + Math.pow(reflectedCubes[i].position.y-camera.position.y,2) + Math.pow(reflectedCubes[i].position.z-camera.position.z, 2));
     console.log("current time " + audio_context.currentTime + ". sound distance " + distance/343);
     reverbSources[i].start(audio_context.currentTime + distance / 343);
-  }
+  // }
 }
 
 function stopSound() {
   source.stop(audio_context.currentTime);
-  for(var i = 0; i < reverbSources.length; i++)
-  {
+  var i = 1;
+  // for(var i = 0; i < reverbSources.length; i++)
+  // {
     console.log(reverbSources[i]);
     reverbSources[i].stop(audio_context.currentTime);
-  }
+  // }
 }
 
 var keyForward = keyBackward = keyLeft = keyRight = false;
