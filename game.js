@@ -1,47 +1,101 @@
-//document.onload = init();
-
 var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera( 45, window.innerWidth/window.innerHeight, 0.1, 1000 );
-camera.position.z = 5.00;
-camera.position.y = -0.50;
+var camera;
+var person_height = 1.8; // 1 unit = 1 meter
+var SOUNDSPEED = 1/343; // speed of sound in meters
+var renderer;
+var url = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/caneTap.wav';
+var play = document.querySelector(".play");
+var stop = document.querySelector(".stop");
+var audio_context = new (window.AudioContext || window.webkitAudioContext)();
+var source;
+var reverbSources = new Array();
+var reflectedCubes = new Array();
+
 //look into left wall bounces if closer to left wall
 
-function position(x,y,z,w) {
-  this.x = x;
-  this.y = y;
-  this.z = z;
+function init() {
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize( window.innerWidth, window.innerHeight );
+  document.body.appendChild( renderer.domElement );
+
+  camera = createCamera(new THREE.Vector3(0,person_height,5.00));
+  createLight(new THREE.Vector3(4,4,4), 0xFFFFFF);
+  //createRoom(new THREE.Vector3(0,0,0), 10, planeMaterial);
+  getAudio(url);
+  var room = Room(new THREE.Vector3(0,0,0), 10, new THREE.Vector3(0,0,0));
 }
-
-// function camera(position) {
-//   this = new THREE.PerspectiveCamera( 45, window.innerWidth/window.innerHeight, 0.1, 1000 );
-//   // this.setPosition = function(position) {
-//   //   this.position.x = position.x;
-//   //   this.position.y = position.y;
-//   //   this.position.z = position.z;
-//   // }
-// }
-// var cam = new camera(new position(1,-0.5,8.00,1));
-
-var light = new THREE.PointLight(0xFFFFFF);
-light.position.x = 4;
-light.position.y = 4;
-light.position.z = 4;
-scene.add(light);
-
-var SOUNDSPEED = 1/343; //speed of sound
-
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize( window.innerWidth, window.innerHeight );
-document.body.appendChild( renderer.domElement );
-
-// var controls = new THREE.TrackballControls( camera,  renderer.domElement );
-// controls.dynamicDampingFactor = 0.5;
-// controls.target.set( )
 
 var cube_geometry = new THREE.BoxGeometry( 1, 1, 1 );
 var cube_material = new THREE.MeshBasicMaterial( { color: 0x0ff0f0 } );
 var cube1 = new THREE.Mesh( cube_geometry, cube_material );
 var cube2 = new THREE.Mesh( cube_geometry, cube_material );
+
+//a room needs to know its walls, its sound
+function Room(origin, length, sound_origin) {
+  var wall_material = new THREE.MeshLambertMaterial({color:0xffffff});
+  this.walls = createRoom(origin, length, wall_material);
+  console.log("creating Room");
+  // this.sound_buffer = source.buffer;
+  // this.origin_sound = SoundSource(source.buffer, sound_origin);
+  // this.reverb_sound = doReverb(source.buffer, sound_origin, this.walls);
+}
+
+function SoundSource(sound_buffer, sound_origin) {
+  this.sound_buffer = sound_buffer;
+  this.source = audio_context.createBufferSource();
+  this.source.buffer = sound_buffer;
+  this.panner = audio_context.createPanner();
+  this.panner.setPosition(sound_origin);
+  this.anner.setPosition(sound_origin);
+  this.panner.panningModel = "HRTF";
+  this.panner.distanceModel = "inverse";
+  this.panner.refDistance = 1;
+  this.panner.maxDistance = 1000;
+  this.panner.rolloffFactor = 1; // 1 / distance squared should be the right thing but it seemed too strong. 1 / distance seems right though. read into inverse square law
+  audio_context.listener.setPosition(camera.position); //move elsewhere so only done once
+  this.source.connect(this.panner);
+  this.panner.connect(audio_context.destination);
+}
+
+function replaySoundSource(sound_source) {
+  sound_source.source = audio_context.createBufferSource();
+  sound_source.source.buffer = sound_source.sound_buffer;
+  //sound_source.source.connect(sound_source.panner); //is this necessary?
+  return sound_source;
+}
+
+function createCamera(position) {
+  var camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.x = position.x;
+  camera.position.y = position.y;
+  camera.position.z = position.z;
+  return camera;
+}
+
+function createLight(position, color) {
+  var light = new THREE.PointLight(color);
+  light.position.x = position.x;
+  light.position.y = position.y;
+  light.position.z = position.z;
+  scene.add(light);
+}
+
+function render() {
+  requestAnimationFrame( render );
+
+  cube1.rotation.x += 0.1;
+  cube1.rotation.y += 0.1;
+
+  update();
+
+  renderer.render(scene, camera);
+};
+
+// var controls = new THREE.TrackballControls( camera,  renderer.domElement );
+// controls.dynamicDampingFactor = 0.5;
+// controls.target.set( )
+
+
 // cube1.position.x = 0;
 // cube1.position.y = 0;
 // cube1.position.z = -15;
@@ -49,9 +103,8 @@ scene.add( cube1 );
 //scene.add( cube2 );
 
 var planeMaterial = new THREE.MeshLambertMaterial({color:0xffffff});
-var walls = new Array();
 
-createRoom(new THREE.Vector3(0,0,   0), 100, planeMaterial); // look into meters/unit measurement in this space
+ // look into meters/unit measurement in this space
 // createRoom(new THREE.Vector3(0,0, -15), 20, planeMaterial);
 // createRoom(new THREE.Vector3(0,0, -45), 40, planeMaterial);
 
@@ -59,6 +112,7 @@ var reverbPositions = new Array();
 
 function createRoom(center, length, material)
 {
+  var walls = new Array();
   walls[0] = createWall(length, length,          center.x, center.y-5,          center.z, -Math.PI/2,          0, 0, material);    //floor
   walls[1] = createWall(length, length,          center.x, center.y+5,          center.z, -Math.PI/2,          0, 0, material);    //ceiling
   walls[2] = createWall(length, length,          center.x,   center.y, center.z+length/2,          0,          0, 0, material);    //back wall
@@ -69,6 +123,7 @@ function createRoom(center, length, material)
   for (var i = 0; i < walls.length; i++) {
     scene.add(walls[i]);
   }
+  return walls;
 }
 
 function createWall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, material)
@@ -82,31 +137,37 @@ function createWall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, 
   wall.rotation.z = rotation_z;
   return wall;
 }
+/*
+* $.ajax({
+    url:
+}).then/done (function(buffer) {
+  //success
+}, function(e) {
+  // error
+})
 
-var play = document.querySelector(".play");
-var stop = document.querySelector(".stop");
-var audio_context = new (window.AudioContext || window.webkitAudioContext)();
-var source;
-var panner;
-var mainVolume;
-var request;
-var convolver;
-var reverbSources = new Array();
-var reflectedCubes = new Array();
+call when on function/promise
+$.when.apply($, my_array) //waits until everything is available then call function
 
-function init() {
-  getAudio();
+promises deferred same concept as jquery deferred
+
+can pmap over list of rooms and sounds (for multiple sounds?)
+function pmap(values, func) {
+calls func on all the values and wait for results then return promises
 }
+can see this on Tar Heel repo on GitHub in store.js under Themes
+*
+*
+*/
 
-init();
-
-function getAudio() {
+function getAudio(url) {
   source = audio_context.createBufferSource();
-  mainVolume = audio_context.createGain();
+  var mainVolume = audio_context.createGain();
   mainVolume.connect(audio_context.destination);
-  request = new XMLHttpRequest();
+  var request = new XMLHttpRequest();
 
-  request.open('GET', 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/caneTap.wav', true);
+  request.open('GET', url, true);
+  //request.open('GET', 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/caneTap.wav', true);
   //request.open('GET', 'sound.wav', true);
   //request.open('Get', 'http://thingsinjars.com/lab/web-audio-tutorial/hello.mp3', true);
   request.responseType = 'arraybuffer';
@@ -114,28 +175,17 @@ function getAudio() {
   request.onload = function() {
     var audioData = request.response;
     audio_context.decodeAudioData(audioData, function(buffer) {
+      console.log(buffer);
       source.buffer = buffer;
-      //source.loop = true;
-      panner = audio_context.createPanner();
-      panner.setPosition(cube1.position.x, cube1.position.y, cube1.position.z);
-      panner.panningModel = "HRTF";
-      panner.distanceModel = "inverse";
-      panner.refDistance = 1;
-      panner.maxDistance = 1000;
-      panner.rolloffFactor = 1; // 1 / distance squared should be the right thing but it seemed too strong. 1 / distance seems right though. read into inverse square law
-      audio_context.listener.setPosition(1,1,1);
-      doReverb(buffer);
-      convolver = audio_context.createConvolver();
-      source.connect(panner);
-      panner.connect(audio_context.destination);
     }, function(e) {
       alert("Error decoding audio"); //error decoding audio
     });
   }
-  request.send();
+  request.send(null);
+  console.log(source.buffer);
 }
 
-function doReverb(sourceBuffer)
+function doReverb(source_Buffer)
 {
   var originalPosition = new THREE.Vector3(0,0,0);
   for (var i = 0; i < walls.length; i++)
@@ -190,20 +240,20 @@ function reflect(sourcePosition, wallPosition, wallRotation, wallWidth)
   return reflectedPosition;
 }
 
-function setReverbImpulseResponse(url, convolver, callback)
-{
-  var request = new XMLHttpRequest();
-  request.open('GET', url, true);
-  request.responseType = 'arraybuffer';
-
-  request.onload = function() {
-    audio_context.decodeAudioData(request.response, function(convolverbuffer) {
-      convolver.buffer = convolverbuffer;
-      //callback();
-    });
-  }
-  request.send();
-}
+// function setReverbImpulseResponse(url, convolver, callback)
+// {
+//   var request = new XMLHttpRequest();
+//   request.open('GET', url, true);
+//   request.responseType = 'arraybuffer';
+//
+//   request.onload = function() {
+//     audio_context.decodeAudioData(request.response, function(convolverbuffer) {
+//       convolver.buffer = convolverbuffer;
+//       //callback();
+//     });
+//   }
+//   request.send();
+// }
 
 var first = true;
 
@@ -220,8 +270,8 @@ function playSound() {
   for (var i = 0; i < reverbSources.length; i++)
   {
     var distance = Math.sqrt(Math.pow(reflectedCubes[i].position.x-camera.position.x,2) + Math.pow(reflectedCubes[i].position.y-camera.position.y,2) + Math.pow(reflectedCubes[i].position.z-camera.position.z, 2));
-    console.log("current time " + audio_context.currentTime + ". sound distance " + distance/343);
-    reverbSources[i].start(audio_context.currentTime + distance / 343);
+    console.log("current time " + audio_context.currentTime + ". sound distance " + distance * SOUNDSPEED);
+    reverbSources[i].start(audio_context.currentTime + distance * SOUNDSPEED);
   }
 }
 
@@ -313,15 +363,6 @@ var update = function() {
   setListenerPosition(dx,dy,dz);
 };
 
-var render = function () {
-  requestAnimationFrame( render );
-
-  cube1.rotation.x += 0.1;
-  cube1.rotation.y += 0.1;
-
-  update();
-
-  renderer.render(scene, camera);
-};
+init();
 
 render();
