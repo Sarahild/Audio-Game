@@ -22,9 +22,9 @@ function init() {
   camera = createCamera(new THREE.Vector3(0,person_height,2.00));
   createLight(new THREE.Vector3(0,0,0), 0xFFFFFF);
   getAudio(url);
-  rooms[0] = new Room(new THREE.Vector3(0,0,0), 10, new THREE.Vector3(0,0,0), true, 1);
+  rooms[0] = new Room(new THREE.Vector3(0,0,0), 10, new THREE.Vector3(0,0,0), true, 5, new THREE.Vector3(0,0,-5), 1, 1, null);
   current_room = 0;
-  rooms[1] = new Room(new THREE.Vector3(0,0,-20), 30, new THREE.Vector3(0,0,-20), true, 0);
+  rooms[1] = new Room(new THREE.Vector3(0,0,-20), 30, new THREE.Vector3(0,0,-20), true, 5, new THREE.Vector3(0,0,-5), 0, null, 0);
   player = new Player();
   console.log("Finished init");
 }
@@ -34,44 +34,73 @@ var cube_material = new THREE.MeshBasicMaterial( { color: 0x0ff0f0 } );
 var reflected_material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
 
 //a room needs to know its walls, its sound
-function Room(origin, length, sound_origin, door, direction) {
+function Room(origin, length, sound_origin, door, door_length, door_position, direction, next_room, prev_room) {
+  this.door = door;
+  this.door_direction = direction;
+  this.door_length = door_length;
+  this.door_position = door_position;
+  this.next_room = next_room;
+  this.prev_room = prev_room;
+
+  this.isInDoorWay = function(x, y, z) {
+    if (this.door_direction == 0) { //back door
+      if (z <= this.door_position.z + person_height && z >= this.door_position.z - person_height) {
+        if (x <= this.door_position.x + this.door_length/2 && x >= this.door_position.x - this.door_length/2) {
+          return 0; //back door
+        }
+      } else if (z > this.door_position.z + person_height) {
+        player.current_room = this.prev_room;
+      }
+    } else if (this.door_direction == 1) {
+      if (z <= this.door_position.z + person_height && z >= this.door_position.z - person_height) {
+        if (x <= this.door_position.x + this.door_length/2 && x >= this.door_position.x - this.door_length/2) {
+          player.current_room = this.next_room;
+          return 1; //front door
+        }
+      } else if (z < this.door_position.z - person_height) {
+        player.current_room = this.next_room;
+      }
+    }
+    console.log(player.current_room);
+    return -1;
+  }
+
   var wall_material = new THREE.MeshLambertMaterial({color:0xffffff});
   if (door)
     if (direction == 0)
-      this.walls = createRoomBackDoor(origin, length, wall_material);
+      this.walls = createRoomBackDoor(origin, length, wall_material, door_length, door_position);
     else if (direction == 1)
-      this.walls = createRoomFrontDoor(origin, length, wall_material);
+      this.walls = createRoomFrontDoor(origin, length, wall_material, door_length, door_position);
   else
     this.walls = createRoom(origin, length, wall_material);
-  console.log(this.walls);
   this.sound_origin = sound_origin;
 
   //assumption: first two walls are actually the floor and ceiling
-  this.collidable = new Array();
-  for (var i = 0; i < this.walls.length - 2; i++ ) {
-    this.collidable[i] = this.walls[i+2];
-  }
+  // this.collidable = new Array();
+  // for (var i = 0; i < this.walls.length - 2; i++ ) {
+  //   this.collidable[i] = this.walls[i+2];
+  // }
   this.corners = new Array();
-  this.corners[0] = new THREE.Vector3(this.walls[2].position.x - length/2, this.walls[2].position.y - length/2, this.walls[2].position.z); //back left bottom
-  this.corners[1] = new THREE.Vector3(this.walls[2].position.x + length/2, this.walls[2].position.y - length/2, this.walls[2].position.z); // back right bottom
-  this.corners[2] = new THREE.Vector3(this.walls[2].position.x - length/2, this.walls[2].position.y + length/2, this.walls[2].position.z); // back left top
-  this.corners[3] = new THREE.Vector3(this.walls[2].position.x + length/2, this.walls[2].position.y + length/2, this.walls[2].position.z); // back right top
-  this.corners[4] = new THREE.Vector3(this.walls[3].position.x - length/2, this.walls[3].position.y - length/2, this.walls[3].position.z); //front left bottom
-  this.corners[5] = new THREE.Vector3(this.walls[3].position.x + length/2, this.walls[3].position.y - length/2, this.walls[3].position.z); // front right bottom
-  this.corners[6] = new THREE.Vector3(this.walls[3].position.x - length/2, this.walls[3].position.y + length/2, this.walls[3].position.z); //front left top
-  this.corners[7] = new THREE.Vector3(this.walls[3].position.x + length/2, this.walls[3].position.y + length/2, this.walls[3].position.z); //front right top
+  this.corners[0] = new THREE.Vector3(origin.x - length/2, origin.y - person_height, origin.z+length/2); //back left bottom
+  this.corners[1] = new THREE.Vector3(origin.x + length/2, origin.y - person_height, origin.z+length/2); // back right bottom
+  this.corners[2] = new THREE.Vector3(origin.x - length/2, origin.y + length - person_height, origin.z + length/2); // back left top
+  this.corners[3] = new THREE.Vector3(origin.x + length/2, origin.y + length - person_height, origin.z + length/2); // back right top
+  this.corners[4] = new THREE.Vector3(origin.x - length/2, origin.y - person_height, origin.z - length/2); //front left bottom
+  this.corners[5] = new THREE.Vector3(origin.x + length/2, origin.y - person_height, origin.z - length/2); // front right bottom
+  this.corners[6] = new THREE.Vector3(origin.x - length/2, origin.y + length - person_height, origin.z - length/2); //front left top
+  this.corners[7] = new THREE.Vector3(origin.x + length/2, origin.y + length - person_height, origin.z - length/2); //front right top
   // this.sound_buffer
   // this.origin_sound
   // this.reverb_sound
-  // var mesh = new Array();
-  // for (var i = 0; i < this.corners.length; i++) {
-  //   mesh[i] = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial( {color: 0xff0000 }));
-  //   mesh[i].position.x = this.corners[i].x;
-  //   mesh[i].position.y = this.corners[i].y;
-  //   mesh[i].position.z = this.corners[i].z;
-  //   scene.add(mesh[i]);
-  // }
-  // console.log(this.corners);
+  var mesh = new Array();
+  for (var i = 0; i < this.corners.length; i++) {
+    mesh[i] = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial( {color: 0xff0000 }));
+    mesh[i].position.x = this.corners[i].x;
+    mesh[i].position.y = this.corners[i].y;
+    mesh[i].position.z = this.corners[i].z;
+    scene.add(mesh[i]);
+  }
+  console.log(this.corners);
 }
 
 function Player() {
@@ -174,90 +203,55 @@ function createRoom(center, length, material)
   walls[5] = new Wall(length, length, center.x-length/2, center.y + length/2 - person_height,          center.z,          0,  Math.PI/2, 0, material);    //right wall
 
   for (var i = 0; i < walls.length; i++) {
-    scene.add(walls[i]);
+    scene.add(walls[i].mesh);
   }
   return walls;
 }
 
-function createRoomFrontDoor(center, length, material) {
+function createRoomFrontDoor(center, length, material, door_length, door_position) {
   var walls = new Array();
   walls[0] = new Wall(length, length,          center.x, center.y            - person_height,          center.z, -Math.PI/2,          0, 0, material, false);    //floor
   walls[1] = new Wall(length, length,          center.x, center.y   + length - person_height,          center.z, Math.PI/2,           0, 0, material, false);    //ceiling
   walls[2] = new Wall(length, length,          center.x, center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, false);    //back wall
-  walls[3] = new Wall(length, length, center.x+length/2, center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, true);    //front left wall
-  walls[4] = new Wall(length, length, center.x-length/2, center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, true);    //front right wall
+  walls[3] = new Wall(length/2-door_length/2, length, center.x + (length/2 - door_length/2), center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, true, door_length, door_position);    //front left wall
+  walls[4] = new Wall(length/2-door_length/2, length, center.x - (length/2 - door_length/2), center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, true, door_length, door_position);    //front right wall
   walls[5] = new Wall(length, length, center.x+length/2, center.y + length/2 - person_height,          center.z,          0, -Math.PI/2, 0, material, false);    //left wall
   walls[6] = new Wall(length, length, center.x-length/2, center.y + length/2 - person_height,          center.z,          0,  Math.PI/2, 0, material, false);    //right wall
 
   for (var i = 0; i < walls.length; i++) {
-    scene.add(walls[i]);
+    scene.add(walls[i].mesh);
   }
   return walls;
 }
 
-function createRoomBackDoor(center, length, material) {
+function createRoomBackDoor(center, length, material, door_length, door_position) {
   var walls = new Array();
   walls[0] = new Wall(length, length,          center.x, center.y            - person_height,          center.z, -Math.PI/2,          0, 0, material, false);    //floor
   walls[1] = new Wall(length, length,          center.x, center.y   + length - person_height,          center.z, Math.PI/2,           0, 0, material, false);    //ceiling
-  walls[2] = new Wall(length, length,          center.x, center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true);    //back wall
-  walls[3] = new Wall(length, length,          center.x, center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, false);    //front wall
-  walls[4] = new Wall(length, length, center.x+length/2, center.y + length/2 - person_height,          center.z,          0, -Math.PI/2, 0, material, false);    //left wall
-  walls[5] = new Wall(length, length, center.x-length/2, center.y + length/2 - person_height,          center.z,          0,  Math.PI/2, 0, material, false);    //right wall
+  walls[2] = new Wall(length/2-door_length/2, length,          center.x + (length/2.5 - door_length/2), center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true, door_length, door_position);    //back wall
+  walls[3] = new Wall(length/2-door_length/2, length,          center.x - (length/2.5 - door_length/2), center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true, door_length, door_position);    //back wall
+  walls[4] = new Wall(length, length,          center.x, center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, false);    //front wall
+  walls[5] = new Wall(length, length, center.x+length/2, center.y + length/2 - person_height,          center.z,          0, -Math.PI/2, 0, material, false);    //left wall
+  walls[6] = new Wall(length, length, center.x-length/2, center.y + length/2 - person_height,          center.z,          0,  Math.PI/2, 0, material, false);    //right wall
 
   for (var i = 0; i < walls.length; i++) {
-    scene.add(walls[i]);
+    scene.add(walls[i].mesh);
   }
+
+
   return walls;
 }
 
-function Door(width, height, x, y, z) {
-  this.position.x = x;
-  this.position.y = y;
-  this.position.z = z;
-  this.width = width;
-  this.height = height;
-}
-
-function Wall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, material, door) {
+function Wall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, material, door, door_length, door_position) {
   this.door = door;
-  console.log(door);
-  this.mesh = new Array();
-  // if (door) {
-  //   // left-side
-  //   this.mesh[0] = new THREE.Mesh(new THREE.PlaneGeometry(width/2, height, 1, 1), material);
-  //   this.mesh[0].position.x = -width/2;
-  //   this.mesh[0].position.y = y;
-  //   this.mesh[0].position.z = z;
-  //   this.mesh[0].rotation.x = rotation_x;
-  //   this.mesh[0].rotation.y = rotation_y;
-  //   this.mesh[0].rotation.z = rotation_z;
-  //
-  //   // right-side
-  //   this.mesh[1] = new THREE.Mesh(new THREE.PlaneGeometry(width/2, height, 1, 1), material);
-  //   this.mesh[1].position.x = width/2;
-  //   this.mesh[1].position.y = y;
-  //   this.mesh[1].position.z = z;
-  //   this.mesh[1].rotation.x = rotation_x;
-  //   this.mesh[1].rotation.y = rotation_y;
-  //   this.mesh[1].rotation.z = rotation_z;
-  // } else {
-    // full wall, no door
-  //   this.mesh[0] = new THREE.Mesh(new THREE.PlaneGeometry(width, height, 1, 1), material);
-  //   this.mesh[0].position.x = x;
-  //   this.mesh[0].position.y = y;
-  //   this.mesh[0].position.z = z;
-  //   this.mesh[0].rotation.x = rotation_x;
-  //   this.mesh[0].rotation.y = rotation_y;
-  //   this.mesh[0].rotation.z = rotation_z;
-  // }
-  this.position = new THREE.Vector3();
-  this.position.x = x;
-  this.position.y = y;
-  this.position.z = z;
-  this.rotation = new THREE.Vector3();
-  this.rotation.x = rotation_x;
-  this.rotation.y = rotation_y;
-  this.rotation.z = rotation_z;
+  this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height, 1, 1), material);
+
+  this.mesh.position.x = x;
+  this.mesh.position.y = y;
+  this.mesh.position.z = z;
+  this.mesh.rotation.x = rotation_x;
+  this.mesh.rotation.y = rotation_y;
+  this.mesh.rotation.z = rotation_z;
 }
 
 function createWall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, material, door)
@@ -321,7 +315,9 @@ function doReverb(source_buffer, source_origin, walls)
   var reverb_sources = new Array();
   for (var i = 0; i < walls.length; i++)
   {
-    var reverb_position = reflect(source_origin, walls[i].position, walls[i].rotation, walls[i].geometry.parameters.height, walls[i].geometry.parameters.width);
+    var reverb_position = reflect(source_origin, walls[i].mesh.position, walls[i].mesh.rotation, walls[i].mesh.geometry.parameters.height, walls[i].mesh.geometry.parameters.width);
+
+
     // reverb_position.y -= 2 * person_height;
     reverb_sources[i] = new SoundSource(source_buffer, reverb_position, reflected_material);
     //var listenerDistance = Math.sqrt(Math.pow(reverbPosition.x-camera.position.x,2) + Math.pow(reverbPosition.y-camera.position.y,2) + Math.pow(reverbPosition.z-camera.position.z, 2));
@@ -391,7 +387,6 @@ function playSound() {
     rooms[current_room].reverb_sound[i] = new SoundSource(rooms[current_room].sound_buffer, rooms[current_room].reverb_sound[i].position, reflected_material);
   }
   rooms[current_room].origin_sound = new SoundSource(rooms[current_room].sound_buffer, rooms[current_room].sound_origin, cube_material);
-  camera.position.y += person_height;
 }
 
 function stopSound() {
@@ -472,50 +467,53 @@ function intersect(corners) {
   var localBottomVertex = player.geometry.vertices[6].clone();
   var globalBottomVertex = localBottomVertex.applyMatrix4(player.mesh.matrix);
 
+  if (rooms[player.current_room].isInDoorWay(globalTopVertex.x, globalTopVertex.y, globalTopVertex.z) != -1) {
+    return -1;
+  }
+
   if (globalTopVertex.x >= corners[0].z && globalTopVertex.z <= corners[0].z) {
     console.log("intersect right");
-    console.log(globalBottomVertex);
-    console.log(corners[0]);
-    console.log(corners[7]);
+    // console.log(globalBottomVertex);
+    // console.log(corners[0]);
+    // console.log(corners[7]);
     return 0; //intersect right
   } else if (globalBottomVertex.x <= corners[7].z && globalBottomVertex.z <= corners[0].z) { //intersect left
     console.log("intersect left");
-    console.log(globalBottomVertex);
-    console.log(corners[7]);
-    console.log(corners[0]);
+    // console.log(globalBottomVertex);
+    // console.log(corners[7]);
+    // console.log(corners[0]);
     return 1; //intersect left
   } else if (globalTopVertex.z >= corners[7].x && globalTopVertex.x <= corners[7].x) {
     console.log("intersect behind");
-    console.log(globalTopVertex);
-    console.log(corners[7]);
-    console.log(corners[0]);
+    // console.log(globalTopVertex);
+    // console.log(corners[7]);
+    // console.log(corners[0]);
     return 2; //intersect behind
   } else if (globalBottomVertex.z <= corners[0].x && globalBottomVertex.x >= corners[0].x) {
     console.log("intersect front");
-    console.log(globalBottomVertex);
-    console.log(corners[0]);
-    console.log(corners[7]);
+    // console.log(globalBottomVertex);
+    // console.log(corners[0]);
+    // console.log(corners[7]);
     return 3; //intersect front
   }
   return -1;
 }
-
 
 function updatePlayerPosition() {
   player.mesh.position.x = camera.position.x;
   player.mesh.position.y = camera.position.y - person_height;
   player.mesh.position.z = camera.position.z;
 
-  // var intersected_wall = intersect(rooms[player.current_room].corners);
-  // if (intersected_wall == 0) {
-  //   camera.position.x = rooms[player.current_room].corners[0].z - 1;
-  // } else if (intersected_wall == 1) {
-  //   camera.position.x = rooms[player.current_room].corners[7].z + 1;
-  // } else if (intersected_wall == 2) {
-  //   camera.position.z = rooms[player.current_room].corners[7].x - 1;
-  // } else if (intersected_wall == 3) {
-  //   camera.position.z = rooms[player.current_room].corners[0].x + 1;
-  // }
+  var intersected_wall = intersect(rooms[player.current_room].corners);
+  if (intersected_wall == 0) {
+    camera.position.x = rooms[player.current_room].corners[0].z - 1;
+  } else if (intersected_wall == 1) {
+    camera.position.x = rooms[player.current_room].corners[7].z + 1;
+  } else if (intersected_wall == 2) {
+    camera.position.z = rooms[player.current_room].corners[7].x - 1;
+  } else if (intersected_wall == 3) {
+    camera.position.z = rooms[player.current_room].corners[0].x + 1;
+  }
 }
 
 var update = function() {
