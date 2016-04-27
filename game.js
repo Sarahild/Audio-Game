@@ -445,58 +445,25 @@ window.addEventListener('keyup', function(event) {
   }
 }, false);
 
-// function didCollide() {
-//   var collidedVertices = "";
-//   for (var vertexIndex = 0; vertexIndex < player.geometry.vertices.length; vertexIndex++) {
-//     var localVertex = player.geometry.vertices[vertexIndex].clone();
-//     var globalVertex = localVertex.applyMatrix4(player.mesh.matrix);
-//     var directionVector = globalVertex.sub(player.mesh.position);
-//
-//     var ray = new THREE.Raycaster(player.mesh.position, directionVector.clone().normalize());
-//     var collisionResults = ray.intersectObjects(player.current_room.collidable);
-//     if (collisionResults.length > 0 && collisionResults[0].distance < directionVector.length())
-//     {
-//       collidedVertices += vertexIndex;
-//     }
-//   }
-// }
-
-function intersect(corners) {
+function didIntersect(corners) {
   var localTopVertex = player.geometry.vertices[0].clone();
   var globalTopVertex = localTopVertex.applyMatrix4(player.mesh.matrix);
   var localBottomVertex = player.geometry.vertices[6].clone();
   var globalBottomVertex = localBottomVertex.applyMatrix4(player.mesh.matrix);
 
   if (rooms[player.current_room].isInDoorWay(globalTopVertex.x, globalTopVertex.y, globalTopVertex.z) != -1) {
-    return -1;
+    return;
   }
 
-  if (globalTopVertex.x >= corners[0].z && globalTopVertex.z <= corners[0].z) {
-    console.log("intersect right");
-    // console.log(globalBottomVertex);
-    // console.log(corners[0]);
-    // console.log(corners[7]);
-    return 0; //intersect right
-  } else if (globalBottomVertex.x <= corners[7].z && globalBottomVertex.z <= corners[0].z) { //intersect left
-    console.log("intersect left");
-    // console.log(globalBottomVertex);
-    // console.log(corners[7]);
-    // console.log(corners[0]);
-    return 1; //intersect left
-  } else if (globalTopVertex.z >= corners[7].x && globalTopVertex.x <= corners[7].x) {
-    console.log("intersect behind");
-    // console.log(globalTopVertex);
-    // console.log(corners[7]);
-    // console.log(corners[0]);
-    return 2; //intersect behind
-  } else if (globalBottomVertex.z <= corners[0].x && globalBottomVertex.x >= corners[0].x) {
-    console.log("intersect front");
-    // console.log(globalBottomVertex);
-    // console.log(corners[0]);
-    // console.log(corners[7]);
-    return 3; //intersect front
+  if (globalTopVertex.x + person_height >= corners[7].x) { //intersect right
+    camera.position.x = rooms[player.current_room].corners[7].x - 1.5*person_height;
+  } if (globalBottomVertex.x - person_height <= corners[0].x) { //intersect left
+    camera.position.x = rooms[player.current_room].corners[0].x + 1.5*person_height;
+  } if (globalBottomVertex.z + person_height >= corners[0].z) {
+    camera.position.z = rooms[player.current_room].corners[0].z - person_height;
+  } if (globalTopVertex.z - person_height <= corners[7].z) {
+    camera.position.z = rooms[player.current_room].corners[7].z + person_height;
   }
-  return -1;
 }
 
 function updatePlayerPosition() {
@@ -504,16 +471,7 @@ function updatePlayerPosition() {
   player.mesh.position.y = camera.position.y - person_height;
   player.mesh.position.z = camera.position.z;
 
-  var intersected_wall = intersect(rooms[player.current_room].corners);
-  if (intersected_wall == 0) {
-    camera.position.x = rooms[player.current_room].corners[0].z - 1;
-  } else if (intersected_wall == 1) {
-    camera.position.x = rooms[player.current_room].corners[7].z + 1;
-  } else if (intersected_wall == 2) {
-    camera.position.z = rooms[player.current_room].corners[7].x - 1;
-  } else if (intersected_wall == 3) {
-    camera.position.z = rooms[player.current_room].corners[0].x + 1;
-  }
+  didIntersect(rooms[player.current_room].corners);
 }
 
 var update = function() {
