@@ -3,7 +3,8 @@ var camera;
 var person_height = 1.8; // 1 unit = 1 meter
 var SOUNDSPEED = 1/343; // speed of sound in meters
 var renderer;
-var url = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/caneTap.wav';
+var url_step = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/319654__manuts__gravel-footstep.wav';
+var url_tap = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/tap.wav';
 var audio_context = new (window.AudioContext || window.webkitAudioContext)();
 var source;
 var source_buffer;
@@ -21,11 +22,12 @@ function init() {
 
   camera = createCamera(new THREE.Vector3(0,person_height,2.00));
   createLight(new THREE.Vector3(0,0,0), 0xFFFFFF);
-  getAudio(url);
-  rooms[0] = new Room(new THREE.Vector3(0,0,0), 10, new THREE.Vector3(0,0,0), true, 5, new THREE.Vector3(0,0,-5), 1, 1, null);
+
+  rooms[0] = new Room(new THREE.Vector3(0,0,0), 30, new THREE.Vector3(0,0,0), true, 5, new THREE.Vector3(0,0,-15), 1, 1, null);
   current_room = 0;
-  rooms[1] = new Room(new THREE.Vector3(0,0,-20), 30, new THREE.Vector3(0,0,-20), true, 5, new THREE.Vector3(0,0,-5), 0, null, 0);
+  rooms[1] = new Room(new THREE.Vector3(0,0,-20), 10, new THREE.Vector3(0,0,-20), true, 5, new THREE.Vector3(0,0,-15), 0, null, 0);
   player = new Player();
+  getAudio(url_tap);
   console.log("Finished init");
 }
 
@@ -33,7 +35,7 @@ var cube_geometry = new THREE.BoxGeometry( 1, 1, 1 );
 var cube_material = new THREE.MeshBasicMaterial( { color: 0x0ff0f0 } );
 var reflected_material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
 
-//a room needs to know its walls, its sound
+//a room needs to know its walls, its doors
 function Room(origin, length, sound_origin, door, door_length, door_position, direction, next_room, prev_room) {
   this.door = door;
   this.door_direction = direction;
@@ -61,11 +63,23 @@ function Room(origin, length, sound_origin, door, door_length, door_position, di
         player.current_room = this.next_room;
       }
     }
-    console.log(player.current_room);
     return -1;
   }
 
-  var wall_material = new THREE.MeshLambertMaterial({color:0xffffff});
+  this.isInDoorView = function(x,y,z, wall) {
+    if ((this.door_direction == 0 || this.door_direction == 1) && wall.mesh.position.z == this.door_position.z) { //back door
+      if (x <= this.door_position.x + this.door_length/2 && x >= this.door_position.x - this.door_length/2) {
+        return true; //back door
+      }
+    } else if ((this.door_direction == 2 || this.door_direction == 3) && wall.mesh.position.x == this.door_position.x) { //back door
+      if (z <= this.door_position.z + this.door_length/2 && x >= this.door_position.z - this.door_length/2) {
+        return true; //back door
+      }
+    }
+    return false;
+  }
+
+  var wall_material = new THREE.MeshLambertMaterial({wireframe:true});
   if (door)
     if (direction == 0)
       this.walls = createRoomBackDoor(origin, length, wall_material, door_length, door_position);
@@ -73,13 +87,7 @@ function Room(origin, length, sound_origin, door, door_length, door_position, di
       this.walls = createRoomFrontDoor(origin, length, wall_material, door_length, door_position);
   else
     this.walls = createRoom(origin, length, wall_material);
-  this.sound_origin = sound_origin;
 
-  //assumption: first two walls are actually the floor and ceiling
-  // this.collidable = new Array();
-  // for (var i = 0; i < this.walls.length - 2; i++ ) {
-  //   this.collidable[i] = this.walls[i+2];
-  // }
   this.corners = new Array();
   this.corners[0] = new THREE.Vector3(origin.x - length/2, origin.y - person_height, origin.z+length/2); //back left bottom
   this.corners[1] = new THREE.Vector3(origin.x + length/2, origin.y - person_height, origin.z+length/2); // back right bottom
@@ -89,45 +97,21 @@ function Room(origin, length, sound_origin, door, door_length, door_position, di
   this.corners[5] = new THREE.Vector3(origin.x + length/2, origin.y - person_height, origin.z - length/2); // front right bottom
   this.corners[6] = new THREE.Vector3(origin.x - length/2, origin.y + length - person_height, origin.z - length/2); //front left top
   this.corners[7] = new THREE.Vector3(origin.x + length/2, origin.y + length - person_height, origin.z - length/2); //front right top
-  // this.sound_buffer
-  // this.origin_sound
-  // this.reverb_sound
-  var mesh = new Array();
-  for (var i = 0; i < this.corners.length; i++) {
-    mesh[i] = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial( {color: 0xff0000 }));
-    mesh[i].position.x = this.corners[i].x;
-    mesh[i].position.y = this.corners[i].y;
-    mesh[i].position.z = this.corners[i].z;
-    scene.add(mesh[i]);
-  }
-  console.log(this.corners);
 }
 
 function Player() {
   this.current_room = current_room;
   this.geometry = new THREE.BoxGeometry( 1 * person_height, 2 * person_height, 1 * person_height);
-  this.mesh = new THREE.Mesh(this.geometry, new THREE.MeshBasicMaterial( {color:0x000000} ));
-  // this.mesh.position.x = camera.position.x;
-  // this.mesh.position.y = camera.position.y - person_height;
-  // this.mesh.position.z = camera.position.z;
+  this.mesh = new THREE.Mesh(this.geometry, new THREE.MeshBasicMaterial( {wireframe: true} ));
   scene.add(this.mesh);
-
-  // var mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial( {color: 0xff0000 }));
-  // mesh.position.x = this.geometry.vertices[0].x;
-  // mesh.position.y = this.geometry.vertices[0].y;
-  // mesh.position.z = this.geometry.vertices[0].z;
-  // scene.add(mesh);
-  //
-  // var mesh2 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial( {color: 0xff0000 }));
-  // mesh2.position.x = this.geometry.vertices[6].x;
-  // mesh2.position.y = this.geometry.vertices[6].y;
-  // mesh2.position.z = this.geometry.vertices[6].z;
-  // scene.add(mesh2);
+  this.sound_buffer;
+  this.sound_origin = Object.assign({}, camera.position);
+  this.sound_origin.y -= 1.5*person_height; //check to make sure this doesn't mess up top and bottom reflections
+  this.sound_source;
 }
 
 function SoundSource(sound_buffer, sound_origin, material) {
   this.position = sound_origin;
-  // this.position.y -= person_height;
   this.cube = new THREE.Mesh(cube_geometry, material);
   this.cube.position.x = sound_origin.x;
   this.cube.position.y = sound_origin.y;
@@ -178,9 +162,9 @@ function createLight(position, color) {
 function render() {
   requestAnimationFrame( render );
 
-  if (rooms[current_room].origin_sound) {
-    rooms[current_room].origin_sound.cube.rotation.x += 0.1;
-    rooms[current_room].origin_sound.cube.rotation.y += 0.1;
+  if (player.sound_source) {
+    player.sound_source.cube.rotation.x += 0.1;
+    player.sound_source.cube.rotation.y += 0.1;
   }
 
   update();
@@ -228,8 +212,8 @@ function createRoomBackDoor(center, length, material, door_length, door_position
   var walls = new Array();
   walls[0] = new Wall(length, length,          center.x, center.y            - person_height,          center.z, -Math.PI/2,          0, 0, material, false);    //floor
   walls[1] = new Wall(length, length,          center.x, center.y   + length - person_height,          center.z, Math.PI/2,           0, 0, material, false);    //ceiling
-  walls[2] = new Wall(length/2-door_length/2, length,          center.x + (length/2.5 - door_length/2), center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true, door_length, door_position);    //back wall
-  walls[3] = new Wall(length/2-door_length/2, length,          center.x - (length/2.5 - door_length/2), center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true, door_length, door_position);    //back wall
+  walls[2] = new Wall(length/2-door_length/2, length,          center.x + (length/2 - door_length/2), center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true, door_length, door_position);    //back wall
+  walls[3] = new Wall(length/2-door_length/2, length,          center.x - (length/2 - door_length/2), center.y + length/2 - person_height, center.z+length/2,          0,          0, 0, material, true, door_length, door_position);    //back wall
   walls[4] = new Wall(length, length,          center.x, center.y + length/2 - person_height, center.z-length/2,          0,          0, 0, material, false);    //front wall
   walls[5] = new Wall(length, length, center.x+length/2, center.y + length/2 - person_height,          center.z,          0, -Math.PI/2, 0, material, false);    //left wall
   walls[6] = new Wall(length, length, center.x-length/2, center.y + length/2 - person_height,          center.z,          0,  Math.PI/2, 0, material, false);    //right wall
@@ -237,8 +221,6 @@ function createRoomBackDoor(center, length, material, door_length, door_position
   for (var i = 0; i < walls.length; i++) {
     scene.add(walls[i].mesh);
   }
-
-
   return walls;
 }
 
@@ -254,39 +236,14 @@ function Wall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, materi
   this.mesh.rotation.z = rotation_z;
 }
 
-function createWall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, material, door)
-{
-  var wall = new THREE.Mesh(new THREE.PlaneGeometry(width, height, 1, 1), material);
-  wall.position.x = x;
-  wall.position.y = y;
-  wall.position.z = z;
-  wall.rotation.x = rotation_x;
-  wall.rotation.y = rotation_y;
-  wall.rotation.z = rotation_z;
-  return wall;
+function Door(center, width, height, rooms) {
+  this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width,height), 1, 1, new THREE.MeshLambertMaterial({color:0xff0000 }));
+  this.mesh.position.x = center.x;
+  this.mesh.position.y = center.y;
+  this.mesh.position.z = center.z;
+  this.length = width;
+  this.rooms = rooms;
 }
-/*
-* $.ajax({
-    url:
-}).then/done (function(buffer) {
-  //success
-}, function(e) {
-  // error
-})
-
-call when on function/promise
-$.when.apply($, my_array) //waits until everything is available then call function
-
-promises deferred same concept as jquery deferred
-
-can pmap over list of rooms and sounds (for multiple sounds?)
-function pmap(values, func) {
-calls func on all the values and wait for results then return promises
-}
-can see this on Tar Heel repo on GitHub in store.js under Themes
-*
-*
-*/
 
 function getAudio(url) {
   source = audio_context.createBufferSource();
@@ -302,9 +259,9 @@ function getAudio(url) {
   request.onload = function() {
     var audioData = request.response;
     audio_context.decodeAudioData(audioData).then(function(buffer) {
-      rooms[current_room].sound_buffer = buffer;
-      rooms[current_room].origin_sound = new SoundSource(buffer, rooms[current_room].sound_origin, cube_material);
-      rooms[current_room].reverb_sound = doReverb(buffer, rooms[current_room].sound_origin, rooms[current_room].walls);
+      player.sound_buffer = buffer;
+      player.sound_source = new SoundSource(buffer, player.sound_origin, cube_material);
+      player.reverb_sound = doReverb(buffer, player.sound_origin, rooms[player.current_room].walls);
     });
   }
   request.send(null);
@@ -313,16 +270,15 @@ function getAudio(url) {
 function doReverb(source_buffer, source_origin, walls)
 {
   var reverb_sources = new Array();
+  var array_index = 0;
   for (var i = 0; i < walls.length; i++)
   {
     var reverb_position = reflect(source_origin, walls[i].mesh.position, walls[i].mesh.rotation, walls[i].mesh.geometry.parameters.height, walls[i].mesh.geometry.parameters.width);
-
-
-    // reverb_position.y -= 2 * person_height;
-    reverb_sources[i] = new SoundSource(source_buffer, reverb_position, reflected_material);
-    //var listenerDistance = Math.sqrt(Math.pow(reverbPosition.x-camera.position.x,2) + Math.pow(reverbPosition.y-camera.position.y,2) + Math.pow(reverbPosition.z-camera.position.z, 2));
-    //console.log(listenerDistance*SOUNDSPEED);
-    //reflectedCubes[i] = new THREE.Mesh( cube_geometry, new THREE.MeshBasicMaterial( { color: 0x0000ff } ) );
+    if (rooms[player.current_room].isInDoorView(reverb_position.x, reverb_position.y, reverb_position.z, walls[i])) {
+      continue;
+    }
+    reverb_sources[array_index] = new SoundSource(source_buffer, reverb_position, reflected_material);
+    array_index++;
   }
   return reverb_sources;
 }
@@ -340,11 +296,14 @@ function reflect(sourcePosition, wallPosition, wallRotation, wallWidth)
   }
   else if (wallRotation.x < 0)
   {
-    return new THREE.Vector3(sourcePosition.x, sourcePosition.y - wallWidth, sourcePosition.z);
+
+    return new THREE.Vector3(sourcePosition.x, sourcePosition.y - Math.abs(wallPosition.y - sourcePosition.y), sourcePosition.z);
   }
   else if (wallRotation.x > 0)
   {
-    return new THREE.Vector3(sourcePosition.x, sourcePosition.y + wallWidth, sourcePosition.z);
+    console.log(wallPosition.y);
+    console.log(sourcePosition.y);
+    return new THREE.Vector3(sourcePosition.x, wallPosition.y + Math.abs(wallPosition.y + sourcePosition.y), sourcePosition.z);
   }
   else
   {
@@ -370,31 +329,28 @@ function reflect(sourcePosition, wallPosition, wallRotation, wallWidth)
 }
 
 function playSound() {
-  //update sound position before playing
-  rooms[current_room].origin_sound.position.x = camera.position.x;
-  rooms[current_room].origin_sound.position.y = camera.position.y;
-  rooms[current_room].origin_sound.position.z = camera.position.z;
-  rooms[current_room].sound_origin = camera.position;
-  rooms[current_room].reverb_sound = doReverb(rooms[current_room].sound_buffer, rooms[current_room].sound_origin, rooms[current_room].walls);
-  rooms[current_room].origin_sound.source.start(audio_context.currentTime);
+  player.sound_origin.x = camera.position.x;
+  player.sound_origin.y = camera.position.y - 1.5 * person_height;
+  player.sound_origin.z = camera.position.z;
 
-  for (var i = 0; i < rooms[current_room].reverb_sound.length; i++)
+  player.reverb_sound = doReverb(player.sound_buffer, player.sound_origin, rooms[player.current_room].walls);
+  player.sound_source.source.start(audio_context.currentTime);
+
+  for (var i = 0; i < player.reverb_sound.length; i++)
   {
-    var distance = Math.sqrt(Math.pow(rooms[current_room].reverb_sound[i].position.x-camera.position.x,2) + Math.pow(rooms[current_room].reverb_sound[i].position.y-camera.position.y,2) + Math.pow(rooms[current_room].reverb_sound[i].position.z-camera.position.z, 2));
-    //console.log("current time " + audio_context.currentTime + ". sound distance " + distance * SOUNDSPEED);
-    rooms[current_room].reverb_sound[i].source.start(audio_context.currentTime + distance * SOUNDSPEED);
-
-    rooms[current_room].reverb_sound[i] = new SoundSource(rooms[current_room].sound_buffer, rooms[current_room].reverb_sound[i].position, reflected_material);
+    var distance = Math.sqrt(Math.pow(player.reverb_sound[i].position.x-camera.position.x,2) + Math.pow(player.reverb_sound[i].position.y-camera.position.y,2) + Math.pow(player.reverb_sound[i].position.z-camera.position.z, 2));
+    player.reverb_sound[i].source.start(audio_context.currentTime + distance * SOUNDSPEED);
+    player.reverb_sound[i] = new SoundSource(player.sound_buffer, player.reverb_sound[i].position, reflected_material);
   }
-  rooms[current_room].origin_sound = new SoundSource(rooms[current_room].sound_buffer, rooms[current_room].sound_origin, cube_material);
+  player.sound_source = new SoundSource(player.sound_buffer, player.sound_origin, cube_material);
 }
 
 function stopSound() {
-  rooms[current_room].origin_sound.source.stop(audio_context.currentTime);
+  player.sound_source.source.stop(audio_context.currentTime);
 
-  for(var i = 0; i < rooms[current_room].reverb_sound.length; i++)
+  for(var i = 0; i < player.reverb_sound.length; i++)
   {
-    rooms[current_room].reverb_sound[i].source.stop(audio_context.currentTime);
+    player.reverb_sound[i].source.stop(audio_context.currentTime);
   }
 }
 
@@ -457,12 +413,16 @@ function didIntersect(corners) {
 
   if (globalTopVertex.x + person_height >= corners[7].x) { //intersect right
     camera.position.x = rooms[player.current_room].corners[7].x - 1.5*person_height;
+    player.sound_origin.x = rooms[player.current_room].corners[7].x - 1.5*person_height;
   } if (globalBottomVertex.x - person_height <= corners[0].x) { //intersect left
     camera.position.x = rooms[player.current_room].corners[0].x + 1.5*person_height;
+    player.sound_origin.x = rooms[player.current_room].corners[7].x + 1.5*person_height;
   } if (globalBottomVertex.z + person_height >= corners[0].z) {
-    camera.position.z = rooms[player.current_room].corners[0].z - person_height;
+    camera.position.z = rooms[player.current_room].corners[0].z - 1;
+    player.sound_origin.z = rooms[player.current_room].corners[0].z - 1;
   } if (globalTopVertex.z - person_height <= corners[7].z) {
-    camera.position.z = rooms[player.current_room].corners[7].z + person_height;
+    camera.position.z = rooms[player.current_room].corners[7].z + 1;
+    player.sound_origin.z = rooms[player.current_room].corners[7].z + 1;
   }
 }
 
