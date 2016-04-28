@@ -5,6 +5,7 @@ var SOUNDSPEED = 1/343; // speed of sound in meters
 var renderer;
 var url_step = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/319654__manuts__gravel-footstep.wav';
 var url_tap = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/tap.wav';
+var url_applause = 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/119024__joedeshon__polite-applause-04.wav';
 var audio_context = new (window.AudioContext || window.webkitAudioContext)();
 var source;
 var source_buffer;
@@ -12,8 +13,6 @@ var reflectedCubes = new Array();
 var current_room; //index into the room the player is currently
 var rooms = new Array();
 var player;
-
-//look into left wall bounces if closer to left wall
 
 function init() {
   renderer = new THREE.WebGLRenderer();
@@ -27,17 +26,21 @@ function init() {
   //function Door(center, width, height, rooms) {
   doors[0] = new Door(new THREE.Vector3(0,0,-15), 5, 10, [0,1]);
   doors[1] = new Door(new THREE.Vector3(0,0,-25), 5, 10, [1,2]);
+  doors[2] = new Door(new THREE.Vector3(-25,0,-50), 5, 10, [2,3]);
+  doors[3] = new Door(new THREE.Vector3(0,0,-75), 5, 10, [2,4]);
 
   current_room = 0;
   rooms[0] = new Room(new THREE.Vector3(0,0,0), 30, 30, doors[0], null, null, null);
-  rooms[1] = new Room(new THREE.Vector3(0,0,-20), 10, 10, null, doors[0], doors[1], null);
-  rooms[2] = new Room(new THREE.Vector3(0,0,-50), 50, 50, null, null, null, doors[1]);
+  rooms[1] = new Room(new THREE.Vector3(0,0,-20), 10, 10, doors[1], doors[0], null, null);
+  rooms[2] = new Room(new THREE.Vector3(0,0,-50), 50, 50, doors[3], doors[1], null, doors[2]);
+  rooms[3] = new Room(new THREE.Vector3(-30,0,-50), 10, 10, null, null, doors[2], null);
+  rooms[4] = new Room(new THREE.Vector3(0,0,-80), 10, 10, null, doors[3], null, null);
   player = new Player();
   getAudio(url_tap);
   console.log("Finished init");
 }
 
-var cube_geometry = new THREE.BoxGeometry( 1, 1, 1 );
+var cube_geometry = new THREE.BoxGeometry(1,1,1);
 var cube_material = new THREE.MeshBasicMaterial( { color: 0x0ff0f0 } );
 var reflected_material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
 
@@ -51,13 +54,12 @@ function Room(origin, length, width, front_door, back_door, right_door, left_doo
   this.width = width;
 
   this.isInDoorWay = function(x, y, z) {
-    if (this.back_door) { //back door
+    if (this.back_door) {
       if (z <= this.back_door.mesh.position.z + person_height && z >= this.back_door.mesh.position.z - person_height) {
         if (x <= this.back_door.mesh.position.x + this.back_door.length/2 && x >= this.back_door.mesh.position.x - this.back_door.length/2) {
-          // player.current_room = (this.back_door.rooms[0] == player.current_room) ? this.back_door.rooms[1] : this.back_door.rooms[1];
-          return 0; //back door
+          return 0;
         }
-      } else if (z > this.back_door.mesh.position.z - person_height) {
+      } if (z > this.back_door.mesh.position.z - 1) {
         player.current_room = (this.back_door.rooms[0] == player.current_room) ? this.back_door.rooms[1] : this.back_door.rooms[0];
         return 0;
       }
@@ -65,52 +67,55 @@ function Room(origin, length, width, front_door, back_door, right_door, left_doo
     if (this.front_door) {
       if (z <= this.front_door.mesh.position.z + person_height && z >= this.front_door.mesh.position.z - person_height) {
         if (x <= this.front_door.mesh.position.x + this.front_door.length/2 && x >= this.front_door.mesh.position.x - this.front_door.length/2) {
-          return 1; //front door
+          return 1;
         }
-      } else if (z < this.front_door.mesh.position.z - person_height) {
+      } if (z < this.front_door.mesh.position.z - 1) {
         player.current_room = player.current_room = (this.front_door.rooms[0] == player.current_room) ? this.front_door.rooms[1] : this.front_door.rooms[0];
         return 1;
       }
     }
     if (this.right_door) {
-      if (x <= this.right_door.mesh.position.x + person_height && x >= this.right_door.mesh.position.x - person_height) {
-        if (z <= this.right_door.mesh.position.x + this.right_door.length/2 && z >= this.right_door.mesh.position.x - this.right_door.length/2) {
-          return 2; //right door
+      if (x <= this.right_door.mesh.position.x + person_height && x >= this.right_door.mesh.position.x - 2*person_height) {
+        if (z <= this.right_door.mesh.position.z + this.right_door.length/2 && z >= this.right_door.mesh.position.z - this.right_door.length/2) {
+          return 2;
         }
-      } else if (x > this.front_door.mesh.position.z - person_height) {
+      } if (x >= this.right_door.mesh.position.x - 1) {
         player.current_room = player.current_room = (this.right_door.rooms[0] == player.current_room) ? this.right_door.rooms[1] : this.right_door.rooms[0];
         return 2;
       }
     }
     if (this.left_door) {
-      if (x <= this.left_door.mesh.position.x + person_height && x >= this.left_door.mesh.position.x - person_height) {
-        if (z <= this.left_door.mesh.position.x + this.left_door.length/2 && z >= this.left_door.mesh.position.x - this.left_door.length/2) {
-          return 2; //right door
+      if (x <= this.left_door.mesh.position.x + 2*person_height && x >= this.left_door.mesh.position.x - person_height) {
+        if (z <= this.left_door.mesh.position.z + this.left_door.length/2 && z >= this.left_door.mesh.position.z - this.left_door.length/2) {
+          return 3;
         }
-      } else if (x > this.left_door.mesh.position.z - person_height) {
+      } if (x <= this.left_door.mesh.position.x - 1) {
         player.current_room = player.current_room = (this.left_door.rooms[0] == player.current_room) ? this.left_door.rooms[1] : this.left_door.rooms[0];
-        return 2;
+        return 3;
       }
     }
     return -1;
   }
 
   this.isInDoorView = function(x,y,z, wall) {
-    if (this.front_door && wall.mesh.position.z == this.front_door.mesh.position.z) { //back door
+    if (this.front_door && wall.mesh.position.z == this.front_door.mesh.position.z) {
       if (x <= this.front_door.mesh.position.x + this.front_door.length/2 && x >= this.front_door.mesh.position.x - this.front_door.length/2) {
-        return true; //back door
+        return true;
       }
-    } else if (this.back_door && wall.mesh.position.z == this.back_door.mesh.position.z) { //front door
+    }
+    if (this.back_door && wall.mesh.position.z == this.back_door.mesh.position.z) {
       if (x <= this.back_door.mesh.position.x + this.back_door.length/2 && x >= this.back_door.mesh.position.x - this.back_door.length/2) {
-        return true; //back door
+        return true;
       }
-    } else if (this.right_door && wall.mesh.position.x == this.right_door.mesh.position.x) { //right door
+    }
+    if (this.right_door && wall.mesh.position.x == this.right_door.mesh.position.x) {
       if (z <= this.right_door.mesh.position.z + this.right_door.length/2 && z >= this.right_door.mesh.position.z - this.right_door.length/2) {
-        return true; //back door
+        return true;
       }
-    } else if (this.left_door && wall.mesh.position.x == this.left_door.mesh.position.x) { //left door
+    }
+    if (this.left_door && wall.mesh.position.x == this.left_door.mesh.position.x) {
       if (z <= this.left_door.mesh.position.z + this.left_door.length/2 && z >= this.left_door.mesh.position.z - this.left_door.length/2) {
-        return true; //back door
+        return true;
       }
     }
     return false;
@@ -137,7 +142,7 @@ function Player() {
   scene.add(this.mesh);
   this.sound_buffer;
   this.sound_origin = Object.assign({}, camera.position);
-  this.sound_origin.y -= 1.5*person_height; //check to make sure this doesn't mess up top and bottom reflections
+  this.sound_origin.y -= 1.5*person_height;
   this.sound_source;
 }
 
@@ -170,7 +175,6 @@ function SoundSource(sound_buffer, sound_origin, material) {
 function replaySoundSource(sound_buffer) {
   var source = audio_context.createBufferSource();
   source.buffer = sound_buffer;
-  //sound_source.source.connect(sound_source.panner); //is this necessary?
   return source;
 }
 
@@ -296,7 +300,6 @@ function reflect(sourcePosition, wallPosition, wallRotation, wallWidth)
   }
   else if (wallRotation.x < 0)
   {
-
     return new THREE.Vector3(sourcePosition.x, sourcePosition.y - Math.abs(wallPosition.y - sourcePosition.y), sourcePosition.z);
   }
   else if (wallRotation.x > 0)
@@ -409,7 +412,6 @@ function didIntersect(corners) {
   if (result != -1) {
     return;
   }
-  console.log(camera.position);
   if (globalTopVertex.x + person_height >= corners[7].x) { //intersect right
     camera.position.x = rooms[player.current_room].corners[7].x - 1.5*person_height;
     player.sound_origin.x = rooms[player.current_room].corners[7].x - 1.5*person_height;
@@ -436,6 +438,27 @@ function updatePlayerPosition() {
 var update = function() {
   var dx = 0,dy = 0,dz = 0;
   var speed = 1/6;
+  // if (player.current_room == rooms.length-2) {
+  //   var applause_source = audio_context.createBufferSource();
+  //   var request = new XMLHttpRequest();
+  //
+  //   request.open('GET', url_applause, true);
+  //   request.responseType = 'arraybuffer';
+  //
+  //   request.onload = function() {
+  //     var audioData = request.response;
+  //     audio_context.decodeAudioData(audioData).then(function(buffer) {
+  //       applause_source.buffer = buffer;
+  //       var mainVolume = audio_context.createGain();
+  //       mainVolume.gain.value = 0.0125;
+  //       applause_source.connect(mainVolume);
+  //       mainVolume.connect(audio_context.destination);
+  //     });
+  //   }
+  //   request.send(null);
+  //   applause_source.start(audio_context.currentTime);
+  //   return;
+  // }
 
   if (keyForward)
   {
@@ -463,6 +486,7 @@ var update = function() {
   }
 
   audio_context.listener.setPosition(camera.position.x, camera.position.y, camera.position.z);
+
 };
 
 init();
