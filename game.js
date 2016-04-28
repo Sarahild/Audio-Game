@@ -28,21 +28,23 @@ function init() {
   doors[1] = new Door(new THREE.Vector3(0,0,-25), 5, 10, [1,2]);
   doors[2] = new Door(new THREE.Vector3(-25,0,-50), 5, 10, [2,3]);
   doors[3] = new Door(new THREE.Vector3(0,0,-75), 5, 10, [2,4]);
+  doors[4] = new Door(new THREE.Vector3(-65,0, -50), 5, 10, [3,5]);
 
   current_room = 0;
   rooms[0] = new Room(new THREE.Vector3(0,0,0), 30, 30, doors[0], null, null, null);
   rooms[1] = new Room(new THREE.Vector3(0,0,-20), 10, 10, doors[1], doors[0], null, null);
   rooms[2] = new Room(new THREE.Vector3(0,0,-50), 50, 50, doors[3], doors[1], null, doors[2]);
-  rooms[3] = new Room(new THREE.Vector3(-30,0,-50), 10, 10, null, null, doors[2], null);
+  rooms[3] = new Room(new THREE.Vector3(-45,0,-50), 10, 40, null, null, doors[2], doors[4]);
   rooms[4] = new Room(new THREE.Vector3(0,0,-80), 10, 10, null, doors[3], null, null);
+  rooms[5] = new Room(new THREE.Vector3(-105, 0, -50), 80, 80, null, null, doors[4], null);
   player = new Player();
   getAudio(url_tap);
   console.log("Finished init");
 }
 
 var cube_geometry = new THREE.BoxGeometry(1,1,1);
-var cube_material = new THREE.MeshBasicMaterial( { color: 0x0ff0f0 } );
-var reflected_material = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
+var cube_material = new THREE.MeshBasicMaterial( { color: 0x080A0A } );
+var reflected_material = new THREE.MeshBasicMaterial( { color: 0x0B0F0F } );
 
 //a room needs to know its walls, its doors
 function Room(origin, length, width, front_door, back_door, right_door, left_door) {
@@ -121,24 +123,24 @@ function Room(origin, length, width, front_door, back_door, right_door, left_doo
     return false;
   }
 
-  var wall_material = new THREE.MeshLambertMaterial({wireframe:true});
+  var wall_material = new THREE.MeshLambertMaterial({color:0x080A0A,wireframe:true});
   this.walls = createRoom(origin, length, width, wall_material);
 
   this.corners = new Array();
-  this.corners[0] = new THREE.Vector3(origin.x - length/2, origin.y - person_height, origin.z+length/2); //back left bottom
-  this.corners[1] = new THREE.Vector3(origin.x + length/2, origin.y - person_height, origin.z+length/2); // back right bottom
-  this.corners[2] = new THREE.Vector3(origin.x - length/2, origin.y + length - person_height, origin.z + length/2); // back left top
-  this.corners[3] = new THREE.Vector3(origin.x + length/2, origin.y + length - person_height, origin.z + length/2); // back right top
-  this.corners[4] = new THREE.Vector3(origin.x - length/2, origin.y - person_height, origin.z - length/2); //front left bottom
-  this.corners[5] = new THREE.Vector3(origin.x + length/2, origin.y - person_height, origin.z - length/2); // front right bottom
-  this.corners[6] = new THREE.Vector3(origin.x - length/2, origin.y + length - person_height, origin.z - length/2); //front left top
-  this.corners[7] = new THREE.Vector3(origin.x + length/2, origin.y + length - person_height, origin.z - length/2); //front right top
+  this.corners[0] = new THREE.Vector3(origin.x - width/2, origin.y - person_height, origin.z+length/2); //back left bottom
+  this.corners[1] = new THREE.Vector3(origin.x + width/2, origin.y - person_height, origin.z+length/2); // back right bottom
+  this.corners[2] = new THREE.Vector3(origin.x - width/2, origin.y + length - person_height, origin.z + length/2); // back left top
+  this.corners[3] = new THREE.Vector3(origin.x + width/2, origin.y + length - person_height, origin.z + length/2); // back right top
+  this.corners[4] = new THREE.Vector3(origin.x - width/2, origin.y - person_height, origin.z - length/2); //front left bottom
+  this.corners[5] = new THREE.Vector3(origin.x + width/2, origin.y - person_height, origin.z - length/2); // front right bottom
+  this.corners[6] = new THREE.Vector3(origin.x - width/2, origin.y + length - person_height, origin.z - length/2); //front left top
+  this.corners[7] = new THREE.Vector3(origin.x + width/2, origin.y + length - person_height, origin.z - length/2); //front right top
 }
 
 function Player() {
   this.current_room = current_room;
   this.geometry = new THREE.BoxGeometry( 1 * person_height, 2 * person_height, 1 * person_height);
-  this.mesh = new THREE.Mesh(this.geometry, new THREE.MeshBasicMaterial( {wireframe: true} ));
+  this.mesh = new THREE.Mesh(this.geometry, new THREE.MeshBasicMaterial({color:0x080A0A,wireframe: true}));
   scene.add(this.mesh);
   this.sound_buffer;
   this.sound_origin = Object.assign({}, camera.position);
@@ -197,17 +199,12 @@ function createLight(position, color) {
 function render() {
   requestAnimationFrame( render );
 
-  if (player.sound_source) {
-    player.sound_source.cube.rotation.x += 0.1;
-    player.sound_source.cube.rotation.y += 0.1;
-  }
-
   update();
 
   renderer.render(scene, camera);
 };
 
-var planeMaterial = new THREE.MeshLambertMaterial({color:0xffffff});
+var planeMaterial = new THREE.MeshLambertMaterial({color:0x080A0A});
 
 var reverbPositions = new Array();
 
@@ -240,13 +237,35 @@ function Wall(width, height, x, y, z, rotation_x, rotation_y, rotation_z, materi
 }
 
 function Door(center, width, height, rooms) {
-  this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width,height, 1, 1), new THREE.MeshLambertMaterial({color:0xff0000,wireframe:true}));
+  this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width,height, 1, 1), new THREE.MeshLambertMaterial({color:0x080A0A,wireframe:true}));
   this.mesh.position.x = center.x;
   this.mesh.position.y = center.y;
   this.mesh.position.z = center.z;
   scene.add(this.mesh);
+
   this.length = width;
   this.rooms = rooms;
+}
+
+function getStepAudio(url) {
+  player.step_sound = audio_context.createBufferSource();
+  var mainVolume = audio_context.createGain();
+  source.connect(mainVolume);
+  mainVolume.connect(audio_context.destination);
+  var request = new XMLHttpRequest();
+
+  request.open('GET', url, true);
+  request.responseType = 'arraybuffer';
+
+  request.onload = function() {
+    var audioData = request.response;
+    audio_context.decodeAudioData(audioData).then(function(buffer) {
+      player.step_buffer = buffer;
+      player.step_source = new SoundSource(buffer, player.sound_origin, cube_material);
+      player.step_reverb_sound = doReverb(buffer, player.sound_origin, rooms[player.current_room].walls);
+    });
+  }
+  request.send(null);
 }
 
 function getAudio(url) {
@@ -256,8 +275,6 @@ function getAudio(url) {
   var request = new XMLHttpRequest();
 
   request.open('GET', url, true);
-  //request.open('GET', 'https://www.cs.unc.edu/~gb/uploaded-files/serust@CS.UNC.EDU/caneTap.wav', true);
-  //request.open('Get', 'http://thingsinjars.com/lab/web-audio-tutorial/hello.mp3', true);
   request.responseType = 'arraybuffer';
 
   request.onload = function() {
@@ -438,27 +455,28 @@ function updatePlayerPosition() {
 var update = function() {
   var dx = 0,dy = 0,dz = 0;
   var speed = 1/6;
-  // if (player.current_room == rooms.length-2) {
-  //   var applause_source = audio_context.createBufferSource();
-  //   var request = new XMLHttpRequest();
-  //
-  //   request.open('GET', url_applause, true);
-  //   request.responseType = 'arraybuffer';
-  //
-  //   request.onload = function() {
-  //     var audioData = request.response;
-  //     audio_context.decodeAudioData(audioData).then(function(buffer) {
-  //       applause_source.buffer = buffer;
-  //       var mainVolume = audio_context.createGain();
-  //       mainVolume.gain.value = 0.0125;
-  //       applause_source.connect(mainVolume);
-  //       mainVolume.connect(audio_context.destination);
-  //     });
-  //   }
-  //   request.send(null);
-  //   applause_source.start(audio_context.currentTime);
-  //   return;
-  // }
+  if (player.current_room == rooms.length-1) {
+    var applause_source = audio_context.createBufferSource();
+    var request = new XMLHttpRequest();
+
+    request.open('GET', url_applause, true);
+    request.responseType = 'arraybuffer';
+
+    request.onload = function() {
+      var audioData = request.response;
+      audio_context.decodeAudioData(audioData).then(function(buffer) {
+        applause_source.buffer = buffer;
+        var mainVolume = audio_context.createGain();
+        mainVolume.gain.value = 0.0125;
+        applause_source.connect(mainVolume);
+        mainVolume.connect(audio_context.destination);
+      });
+    }
+    request.send(null);
+    applause_source.start(audio_context.currentTime);
+    player.current_room++;
+    return;
+  }
 
   if (keyForward)
   {
